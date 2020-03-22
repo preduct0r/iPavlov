@@ -11,13 +11,13 @@ from torch.nn import functional as F
 from Task_1_polish.data_processing import Preprocess
 from Task_1_polish.get_data import get_batcher, model, Config, weights_init, EarlyStopping
 
-data_path = r"C:\Users\Andrey\PycharmProjects\DeepPavlov"
+data_path = r"C:\Users\Andrey\Google Диск\DeepPavlov"
 # preprocesser = Preprocess(path=r'C:\Users\Andrey\Google Диск\DeepPavlov\text8\text8', limit=5, window_size=5, mode='cbow')
 # X, y, word2index, index2word = preprocesser._get_data()
 # with open(os.path.join(data_path,'intermediate_results', 'w2v_data.pkl'), "wb") as f:
 #    pickle.dump([X, y, word2index, index2word], f)
 
-with open(os.path.join(data_path,'intermediate_results', 'w2v_data.pkl'), "rb") as f:
+with open(os.path.join(data_path, 'w2v_data.pkl'), "rb") as f:
    [X, y, word2index, index2word] = pickle.load(f)
 
 if cuda.is_available():
@@ -87,4 +87,4 @@ for epoch in range(config.num_epochs):
 
 print("--- %s seconds ---" % (time.time() - start_time))
 
-torch.save(net, os.path.join(data_path, 'intermediate_results', 'net.pb'))
+torch.save(net, os.path.join(data_path, 'net_text8.pb'))
