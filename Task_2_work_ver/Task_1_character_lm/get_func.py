@@ -67,8 +67,10 @@ class Padder:
 
 
 class RNNLM(nn.Module):
-    def __init__(self, vocab_size, embeddings_dim, hidden_size):
+    def __init__(self, vocab_size, embeddings_dim, hidden_size, batch_size, device):
         super(RNNLM, self).__init__()
+        self.device = device
+        self.batch_size = batch_size
         self.vocab_size = vocab_size
         self.embeddings_dim = embeddings_dim
         self.hidden_size = hidden_size
@@ -77,12 +79,22 @@ class RNNLM(nn.Module):
         self.linear = nn.Linear(hidden_size, vocab_size)
         self.softmax = nn.LogSoftmax(dim=2)
 
-    def forward(self, inputs, hidden=None):
+    def forward(self, inputs, hidden):
         out = self.emb(inputs)
         out, hidden = self.gru(out)
         out = self.linear(out)
-        out = self.softmax(out)
+        # out = self.softmax(out)
         return out, hidden
+
+    def init_hidden(self, batch_size):
+        ''' Initializes hidden state '''
+        # Create two new tensors with sizes n_layers x batch_size x n_hidden,
+        # initialized to zero, for hidden state and cell state of LSTM
+        weight = list(self.parameters())[1].data                                              # ???
+        # weight = next(self.parameters()).data
+        hidden = (weight.new_tensor((1, batch_size, self.hidden_size)).zero_().to(self.device),
+                      weight.new_tensor((1, batch_size, self.hidden_size)).zero_().to(self.device))
+        return hidden
 
 
 def validate_on_batch(model, criterion, x, y, h, vocab):
@@ -103,7 +115,7 @@ def predict_on_batch(model, criterion, batch):
     pass
 
 class EarlyStopping():
-    def __init__(self, patience=5, min_percent_gain=1):
+    def __init__(self, patience=5, min_percent_gain=0.1):
         self.patience = patience
         self.loss_list = []
         self.min_percent_gain = min_percent_gain / 100.

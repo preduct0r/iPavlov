@@ -4,6 +4,7 @@ import os
 import time
 import pickle
 import torch
+from torch.nn.functional import log_softmax
 import torch.cuda as cuda
 from torch.utils.data import DataLoader
 from deeppavlov.core.data.simple_vocab import SimpleVocabulary
@@ -12,7 +13,7 @@ from Task_2_work_ver.Task_1_character_lm.get_func import Config, Dataset, Padder
 
 base_path = r'C:\Users\Andrey'
 experiments_path = r'C:\Users\Andrey\Google Диск\courses\DeepPavlov\Task-2-preduct0r\data\Task_1'
-config = Config(lr=0.0001, batch_size=128, num_epochs=1000)
+config = Config(lr=0.0001, batch_size=128, num_epochs=500)
 
 train_words = read_infile(os.path.join(base_path, "russian-train-high"))
 dev_words = read_infile(os.path.join(base_path, "russian-dev"))
@@ -27,13 +28,13 @@ dev_dataset = Dataset(dev_words, vocab)
 test_dataset = Dataset(test_words, vocab)
 # ==========================================================================
 
-
-net = RNNLM(vocab_size=len(vocab), embeddings_dim=len(vocab), hidden_size=300)
-
 if cuda.is_available():
     device = 'cuda'
 else:
     device = 'cpu'
+# device='cpu'
+
+net = RNNLM(vocab_size=len(vocab), embeddings_dim=len(vocab), hidden_size=300, batch_size=config.batch_size, device=device)
 net.to(device)
 
 train_batcher = DataLoader(train_dataset, batch_size=config.batch_size, collate_fn=Padder(pad_symbol=vocab._t2i['PAD']))
@@ -57,6 +58,7 @@ net.to(device)
 early_stopping = EarlyStopping()
 
 for epoch in range(config.num_epochs):
+    h = net.init_hidden(config.batch_size)
     iter_loss = 0.0
     correct = 0
     iterations = 0
@@ -71,8 +73,12 @@ for epoch in range(config.num_epochs):
         items = items.to(device)
         classes = classes.to(device).view(-1)
 
-        outputs, hidden = net(items)
-        outputs = outputs.view(-1, len(vocab))
+        # Creating new variables for the hidden state, otherwise
+        # we'd backprop through the entire training history
+        h = tuple([each.data for each in h])                                       #???
+
+        outputs, hidden = net(items, h)
+        outputs = log_softmax(outputs.view(-1, len(vocab)), dim=1)
 
         loss = criterion(outputs, classes)
         loss.backward()
@@ -88,27 +94,32 @@ for epoch in range(config.num_epochs):
 
     train_loss.append(iter_loss / iterations)
 
-    # early_stopping.update_loss(train_loss[-1])
-    # if early_stopping.stop_training():
-    #     break
+    early_stopping.update_loss(train_loss[-1])
+    if early_stopping.stop_training():
+        break
 
     ############################
     # Validate
     ############################
+    val_h = net.init_hidden(config.batch_size)
     iter_loss = 0.0
     correct = 0
     f_scores = 0
     iterations = 0
     net.eval()
-    hidden = torch.zeros((1, config.batch_size, 300)).to(device)
 
     for i, (items, classes) in enumerate(dev_batcher):
         if classes.shape[0]!=config.batch_size:
             break
         items = items.to(device)
         classes = classes.to(device).view(-1)
-        outputs, hidden = net(items)
-        outputs = outputs.view(-1,len(vocab))
+
+        # Creating new variables for the hidden state, otherwise
+        # we'd backprop through the entire training history
+        val_h = tuple([each.data for each in val_h])
+
+        outputs, val_h = net(items, val_h)
+        outputs = log_softmax(outputs.view(-1, len(vocab)), dim=1)
         loss = criterion(outputs, classes)
         iter_loss += loss.item()
 
@@ -119,7 +130,7 @@ for epoch in range(config.num_epochs):
 
     valid_loss.append(iter_loss / iterations)
 
-    if epoch%100 ==0 and epoch!=0 and valid_loss[-1] < min_loss:
+    if epoch%10 ==0 and epoch!=0 and valid_loss[-1] < min_loss:
         torch.save(net, os.path.join(experiments_path, "net.pb"))
         min_loss = valid_loss[-1]
 

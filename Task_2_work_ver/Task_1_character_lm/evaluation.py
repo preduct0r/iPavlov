@@ -1,11 +1,12 @@
 import os
 import pickle
 import numpy as np
-import matplotlib
-from matplotlib import pyplot as plt
 import torch
+from torch.nn.functional import softmax
 from torch.utils.data import DataLoader
 from deeppavlov.core.data.simple_vocab import SimpleVocabulary
+from Task_2_work_ver.Task_1_character_lm.plot_loss import plot_loss
+
 
 from Task_2_work_ver.Task_1_character_lm.get_func import read_infile, Dataset, Padder, Config
 
@@ -25,27 +26,16 @@ test_batcher = DataLoader(test_dataset, batch_size=config.batch_size, collate_fn
 net = torch.load(os.path.join(experiments_path, "net.pb"))
 # ============================================================================
 
-def plot_loss(experiments_path):
-    data_path = os.path.join(experiments_path, "loss_track.pkl")
-
-    with open(data_path, 'rb') as f:
-        data = pickle.load(f)
-
-    [train_loss, valid_loss] = data
-
-    plt.plot(train_loss)
-    plt.plot(valid_loss)
-    plt.title('loss')
-    plt.ylabel('loss')
-    plt.xlabel('epoch')
-    plt.legend(['train', 'val'], loc='upper left')
-    plt.show()
-
-
 
 # Write a function predict_on_batch that outputs letter probabilities of all words in the batch.
-def predict_on_batch(model, criterion, x, y, vocab):
-    outputs = model(x).view(-1,len(vocab))
+h = net.init_hidden(1)
+def predict_on_batch(model, criterion, x, y, vocab, h=h):
+    # detach hidden state from history
+    h = tuple([each.data for each in h])
+
+    outputs, h = model(x, h)
+    outputs = softmax(outputs, dim=2)
+    outputs = outputs.view(-1,len(vocab))
     letters = [vocab._i2t[i] for i in y]
     preds = outputs[np.arange(y.shape[0]), y]
     print([vocab._i2t[s] for s in np.argmax(outputs.detach().cpu().numpy(), axis=1)])
@@ -79,4 +69,4 @@ for i, (items, classes) in enumerate(test_batcher):
 
 print(loss / iterations)
 
-plot_loss(experiments_path)
+
