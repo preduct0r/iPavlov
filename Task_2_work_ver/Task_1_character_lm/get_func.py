@@ -73,29 +73,34 @@ class RNNLM(nn.Module):
         self.embeddings_dim = embeddings_dim
         self.hidden_size = hidden_size
         self.emb = nn.Embedding(vocab_size, embeddings_dim)
-        self.gru = nn.GRU(embeddings_dim, hidden_size)
+        self.gru = nn.GRU(embeddings_dim, hidden_size, batch_first=True)
         self.linear = nn.Linear(hidden_size, vocab_size)
         self.softmax = nn.LogSoftmax(dim=2)
 
     def forward(self, inputs, hidden=None):
         out = self.emb(inputs)
-        out,_ = self.gru(out)
+        out, hidden = self.gru(out)
         out = self.linear(out)
         out = self.softmax(out)
-        return out
+        return out, hidden
 
 
-def validate_on_batch(model, criterion, x, y):
-    outputs = model(x)
-    return criterion(outputs, y.long())
+def validate_on_batch(model, criterion, x, y, h, vocab):
+    outputs, h = model(x, h).view(-1,len(vocab))
+    return outputs, h, criterion(outputs, y)
 
 
-def train_on_batch(model, criterion, x, y, optimizer):
+def train_on_batch(model, criterion, x, y, optimizer, iter_loss, vocab):
     optimizer.zero_grad()
-    loss = validate_on_batch(model, criterion, x, y)
+    outputs, loss = validate_on_batch(model, criterion, x, y, vocab)
     loss.backward()
+    iter_loss += loss.item()
     optimizer.step()
+    return outputs, iter_loss
 
+
+def predict_on_batch(model, criterion, batch):
+    pass
 
 class EarlyStopping():
     def __init__(self, patience=5, min_percent_gain=1):
@@ -124,4 +129,7 @@ class Config:
         self.lr = lr
         self.batch_size = batch_size
         self.num_epochs = num_epochs
+
+
+
 

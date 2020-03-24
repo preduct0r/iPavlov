@@ -1,0 +1,15 @@
+,name,total,correct
+0,: capital-common-countries,506,0
+1,: capital-world,4524,1
+2,: currency,866,0
+3,: city-in-state,2467,1
+4,: family,506,31
+5,: gram1-adjective-to-adverb,992,9
+6,: gram2-opposite,812,1
+7,: gram3-comparative,1332,0
+8,: gram4-superlative,1122,0
+9,: gram5-present-participle,1056,98
+10,: gram6-nationality-adjective,1599,0
+11,: gram7-past-tense,1560,103
+12,: gram8-plural,1332,372
+13,: gram9-plural-verbs,870,28
