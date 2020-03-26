@@ -26,14 +26,12 @@ test_batcher = DataLoader(test_dataset, batch_size=1)
 net = torch.load(os.path.join(experiments_path, "net.pb"))
 # ============================================================================
 
-
+# https://discuss.pytorch.org/t/how-to-properly-use-hidden-states-for-rnn/13607
 # Write a function predict_on_batch that outputs letter probabilities of all words in the batch.
-h = net.init_hidden(1)
+# h = net.init_hidden(1)
 
-def predict_on_batch(model, x, y, vocab, h=h):
-    # detach hidden state from history
-    # h = tuple([each.data for each in h])
-    outputs, h = model(x, h)
+def predict_on_batch(model, x, y, vocab):
+    outputs, h = model(x)
     outputs = softmax(outputs, dim=2)
     outputs = outputs.view(-1,len(vocab))
     letters = [vocab._i2t[i] for i in y]

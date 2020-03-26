@@ -15,7 +15,7 @@ def read_infile(infile):
     words = []
     with open(infile, encoding='utf-8') as f:
         for line in f.readlines():
-            temp = line.split()
+            temp = line.lower().split()
             if len(temp)==3:
                 words.append(temp[1])
     return words
@@ -75,13 +75,13 @@ class RNNLM(nn.Module):
         self.embeddings_dim = embeddings_dim
         self.hidden_size = hidden_size
         self.emb = nn.Embedding(vocab_size, embeddings_dim)
-        self.gru = nn.GRU(embeddings_dim, hidden_size, batch_first=True)
+        self.gru = nn.GRU(embeddings_dim, hidden_size, batch_first=True) # https://discuss.pytorch.org/t/could-someone-explain-batch-first-true-in-lstm/15402/2
         self.linear = nn.Linear(hidden_size, vocab_size)
-        self.softmax = nn.LogSoftmax(dim=2)
+        self.softmax = nn.Softmax(dim=2)
 
-    def forward(self, inputs, hidden):
+    def forward(self, inputs, hidden=None):
         out = self.emb(inputs)
-        out, hidden = self.gru(out)
+        out, hidden = self.gru(out, hidden)
         out = self.linear(out)
         # out = self.softmax(out)
         return out, hidden
@@ -90,10 +90,7 @@ class RNNLM(nn.Module):
         ''' Initializes hidden state '''
         # Create two new tensors with sizes n_layers x batch_size x n_hidden,
         # initialized to zero, for hidden state and cell state of LSTM
-        weight = list(self.parameters())[1].data                                              # ???
-        # weight = next(self.parameters()).data
-        hidden = (weight.new_tensor((1, batch_size, self.hidden_size)).zero_().to(self.device),
-                      weight.new_tensor((1, batch_size, self.hidden_size)).zero_().to(self.device))
+        hidden = torch.zeros((1, batch_size, self.hidden_size)).to(self.device)
         return hidden
 
 
