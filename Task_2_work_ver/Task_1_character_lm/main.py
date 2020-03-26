@@ -13,7 +13,7 @@ from Task_2_work_ver.Task_1_character_lm.get_func import Config, Dataset, Padder
 
 base_path = r'C:\Users\Andrey'
 experiments_path = r'C:\Users\Andrey\Google Диск\courses\DeepPavlov\Task-2-preduct0r\data\Task_1'
-config = Config(lr=0.0001, batch_size=128, num_epochs=500)
+config = Config(lr=0.0001, batch_size=128, num_epochs=300)
 
 train_words = read_infile(os.path.join(base_path, "russian-train-high"))
 dev_words = read_infile(os.path.join(base_path, "russian-dev"))
@@ -51,14 +51,14 @@ min_loss =1000
 
 weights = torch.ones((len(vocab),)).to(device)
 weights[vocab._t2i['PAD']]  = 0
-criterion = torch.nn.NLLLoss(weight=weights, reduction='mean')
+criterion = torch.nn.CrossEntropyLoss(weight=weights, reduction='mean')
 optimizer = torch.optim.Adam(net.parameters(), lr=config.lr)
 net.to(device)
 
 early_stopping = EarlyStopping()
 
 for epoch in range(config.num_epochs):
-    h = net.init_hidden(config.batch_size)
+    # h = net.init_hidden(config.batch_size)
     iter_loss = 0.0
     correct = 0
     iterations = 0
@@ -67,18 +67,16 @@ for epoch in range(config.num_epochs):
     for i, (items, classes) in enumerate(train_batcher):
         optimizer.zero_grad()
 
-        if classes.shape[0]!=config.batch_size:
-            break
-
         items = items.to(device)
         classes = classes.to(device).view(-1)
 
         # Creating new variables for the hidden state, otherwise
         # we'd backprop through the entire training history
-        h = tuple([each.data for each in h])                                       #???
+        # h = [each.data for each in h]                                      #???
 
-        outputs, hidden = net(items, h)
-        outputs = log_softmax(outputs.view(-1, len(vocab)), dim=1)
+        outputs, hidden = net(items)
+        outputs = outputs.view(-1, len(vocab))
+        # outputs = log_softmax(outputs.view(-1, len(vocab)), dim=1)
 
         loss = criterion(outputs, classes)
         loss.backward()
@@ -94,14 +92,14 @@ for epoch in range(config.num_epochs):
 
     train_loss.append(iter_loss / iterations)
 
-    early_stopping.update_loss(train_loss[-1])
-    if early_stopping.stop_training():
-        break
+    # early_stopping.update_loss(train_loss[-1])
+    # if early_stopping.stop_training():
+    #     break
 
     ############################
     # Validate
     ############################
-    val_h = net.init_hidden(config.batch_size)
+    # val_h = net.init_hidden(config.batch_size)
     iter_loss = 0.0
     correct = 0
     f_scores = 0
@@ -109,17 +107,16 @@ for epoch in range(config.num_epochs):
     net.eval()
 
     for i, (items, classes) in enumerate(dev_batcher):
-        if classes.shape[0]!=config.batch_size:
-            break
         items = items.to(device)
         classes = classes.to(device).view(-1)
 
         # Creating new variables for the hidden state, otherwise
         # we'd backprop through the entire training history
-        val_h = tuple([each.data for each in val_h])
+        # val_h = [each.data for each in val_h]
 
-        outputs, val_h = net(items, val_h)
-        outputs = log_softmax(outputs.view(-1, len(vocab)), dim=1)
+        outputs, val_h = net(items)
+        outputs = outputs.view(-1, len(vocab))
+        # outputs = log_softmax(outputs.view(-1, len(vocab)), dim=1)
         loss = criterion(outputs, classes)
         iter_loss += loss.item()
 
@@ -130,9 +127,11 @@ for epoch in range(config.num_epochs):
 
     valid_loss.append(iter_loss / iterations)
 
-    if epoch%10 ==0 and epoch!=0 and valid_loss[-1] < min_loss:
+    if epoch%10==0 and epoch!=0 and valid_loss[-1] < min_loss:
         torch.save(net, os.path.join(experiments_path, "net.pb"))
         min_loss = valid_loss[-1]
+
+
 
     print('Epoch %d/%d, Tr Loss: %.4f, Dev Loss: %.4f'
           % (epoch + 1, config.num_epochs, train_loss[-1], valid_loss[-1]))
